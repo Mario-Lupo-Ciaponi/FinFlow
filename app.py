@@ -1,12 +1,24 @@
 import customtkinter as ctk
-from connection import *  # Connection to database
+import psycopg2 # Connection to database
+from tkinter import messagebox
+from string import capwords
+
+
+def get_connection():
+    return  psycopg2.connect(
+    dbname="fin_flow_db",
+    user="postgres",
+    password="Ps1029384756,.",
+    host="localhost",
+    port="5432"
+    )
 
 # Set themes
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 class FinFlowApp(ctk.CTk):
-    TYPES = ["gain", "expense"]
+    TYPES = ["income", "expense"]
 
     def __init__(self):
         super().__init__()
@@ -14,7 +26,7 @@ class FinFlowApp(ctk.CTk):
         self.title("Fin Flow")
         self.geometry("400x400")
 
-        self.label_to_add = ctk.CTkLabel(self, text="Type the expense/gain:", font=("Helvetica", 20))
+        self.label_to_add = ctk.CTkLabel(self, text="Type the income/expense:", font=("Helvetica", 20))
         self.label_to_add.pack(pady=20)
 
         # Amount:
@@ -41,7 +53,7 @@ class FinFlowApp(ctk.CTk):
 
         self.button_to_add = ctk.CTkButton(self,
                                            text="Add",
-                                           command=self.print_message,
+                                           command=self.add_record,
                                            font=("Helvetica", 15),
                                            corner_radius=40,
                                            border_width=2,
@@ -50,8 +62,39 @@ class FinFlowApp(ctk.CTk):
                                            width=80)
         self.button_to_add.pack(pady=20)
 
-    def print_message(self):
-        pass
+    def add_record(self):
+        amount = float(self.entry_for_amount.get())
+        reason = str(self.entry_for_reason.get())
+        type_of_action = self.combo_box_for_options.get()
+
+        cursor = None
+        connection_to_db = None
+
+        try:
+            connection_to_db = get_connection()
+            if connection_to_db is None:
+                print("Failed to connect to the database.")
+                return
+
+            cursor = connection_to_db.cursor()
+
+            query = "INSERT INTO transactions(amount, reason, type) VALUES (%s, %s, %s)"
+            cursor.execute(query, (amount, reason, type_of_action))
+
+            connection_to_db.commit()
+
+            messagebox.showinfo("Success!", f"{capwords(type_of_action)} added successfully!")
+        except psycopg2.Error as e:
+            messagebox.showerror("Error", f"Error occured while adding {type_of_action}")
+            if connection_to_db:
+                connection_to_db.rollback()
+
+        finally:
+            if cursor:
+                cursor.close()
+
+            if connection_to_db:
+                connection_to_db.close()
 
 
 def main():
