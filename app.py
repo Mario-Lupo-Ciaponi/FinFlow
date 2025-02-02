@@ -122,10 +122,52 @@ class FinFlowApp(ctk.CTk):
             if cursor:
                 cursor.close()
 
+    def does_query_exist(self, cursor, id):
+        select_query = f"SELECT id FROM {self.TABLE_NAME} WHERE id = %s;"
+        cursor.execute(select_query, (id,))  # Pass id as a tuple
+        result = cursor.fetchone()  # Fetch only one row
+
+        return result is not None  # Return True if a row is found, otherwise False
+
     def show_records(self):
+        def delete_transaction():
+            conn_to_db = None
+            cursor_to_db = None
+
+            try:
+                conn_to_db = get_connection()
+                cursor_to_db = conn_to_db.cursor()
+
+                id = entry_for_delete.get()
+
+                if not self.does_query_exist(cursor_to_db, id):
+                    raise ValueError
+
+                answer_for_measure = messagebox.askyesno("Are you sure?", "Are you sure you want to delete")
+
+                if answer_for_measure:
+                    delete_query = f"DELETE FROM {self.TABLE_NAME} WHERE id = %s;"
+
+                    cursor_to_db.execute(delete_query, (id,))
+
+                    conn_to_db.commit()
+            except psycopg2.Error:
+                messagebox.showerror("Error", "There was an error with the transactions.")
+                conn_to_db.rollback()
+            except ValueError:
+                messagebox.showerror("Error", "Transaction does not exist!")
+            else:
+                messagebox.showinfo("Success", "Transaction deleted successfully!")
+            finally:
+                if conn_to_db:
+                    conn_to_db.close()
+                if cursor_to_db:
+                    cursor_to_db.close()
+
+
         records_window = ctk.CTkToplevel(self)
         records_window.title("Transactions")
-        records_window.geometry("700x400")
+        records_window.geometry("730x600")
         records_window.resizable(False, False)
 
         label_transactions = ctk.CTkLabel(records_window, text="Transactions:", font=("Roboto", 25))
@@ -134,23 +176,42 @@ class FinFlowApp(ctk.CTk):
         conn = get_connection()
         cursor = conn.cursor()
 
-        select_query = f"SELECT amount, reason, type, date FROM {self.TABLE_NAME};"
+        select_query = f"SELECT * FROM {self.TABLE_NAME};"
 
         cursor.execute(select_query)
 
         transactions = cursor.fetchall()
 
         scroll_frame_for_transaction = ctk.CTkScrollableFrame(records_window,
-                                                              width=600,
+                                                              width=630,
                                                               height=280)
-        scroll_frame_for_transaction.pack()
+        scroll_frame_for_transaction.pack(pady=15)
 
-        for amount, reason, type_of_transaction, date in transactions:
-            label_info = ctk.CTkLabel(scroll_frame_for_transaction, text=f"Amount: {amount}; "
+        for id, amount, reason, type_of_transaction, date in transactions:
+            label_info = ctk.CTkLabel(scroll_frame_for_transaction, text=f"ID: {id}; "
+                                                                         f"Amount: {amount}; "
                                                                          f"Reason: {reason}; "
                                                                          f"Type: {type_of_transaction}; "
                                                                          f"Date: {date}")
             label_info.pack(pady=10)
+
+
+        label_delete_by_id = ctk.CTkLabel(records_window,
+                                    text="Delete transaction by entering id:",
+                                    text_color="#d90902")
+        label_delete_by_id.pack(pady=10)
+
+        entry_for_delete = ctk.CTkEntry(records_window, width=40)
+        entry_for_delete.pack()
+
+        button_to_delete = ctk.CTkButton(records_window,
+                                         text="DELETE",
+                                         fg_color="Red",
+                                         corner_radius=20,
+                                         width=20,
+                                         hover_color="#820b07",
+                                         command=delete_transaction)
+        button_to_delete.pack(pady=20)
 
         cursor.close()
         conn.close()
@@ -159,7 +220,6 @@ class FinFlowApp(ctk.CTk):
 def main():
     fin_flow_app = FinFlowApp()
     fin_flow_app.mainloop()
-
 
 
 if __name__ == "__main__":
