@@ -30,10 +30,12 @@ class FinFlowApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Fin Flow")
-        self.geometry("400x400")
+        self.resizable(False, False)
 
-        self.label_to_add = ctk.CTkLabel(self, text="Type the income/expense:", font=("Helvetica", 20))
+        self.title("Fin Flow")
+        self.geometry("400x425")
+
+        self.label_to_add = ctk.CTkLabel(self, text="Type the income/expense:", font=("Roboto", 20))
         self.label_to_add.pack(pady=20)
 
         # Amount:
@@ -69,8 +71,17 @@ class FinFlowApp(ctk.CTk):
                                            width=80)
         self.button_to_add.pack(pady=20)
 
+        self.button_for_records = ctk.CTkButton(self,
+                                                text="Show transactions",
+                                                command=self.show_records,
+                                                font=("Helvetica", 10),
+                                                width=90,
+                                                corner_radius=20,
+                                                fg_color="#0e5c23",
+                                                hover_color="#0a3315")
+        self.button_for_records.pack(pady=10)
+
     def add_record(self):
-        allowed_tables = {"transactions"}
         conn = None
         cursor = None
 
@@ -111,11 +122,44 @@ class FinFlowApp(ctk.CTk):
             if cursor:
                 cursor.close()
 
+    def show_records(self):
+        records_window = ctk.CTkToplevel(self)
+        records_window.title("Transactions")
+        records_window.geometry("700x400")
+        records_window.resizable(False, False)
+
+        label_transactions = ctk.CTkLabel(records_window, text="Transactions:", font=("Roboto", 25))
+        label_transactions.pack(pady=20)
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        select_query = f"SELECT amount, reason, type, date FROM {self.TABLE_NAME};"
+
+        cursor.execute(select_query)
+
+        transactions = cursor.fetchall()
+
+        scroll_frame_for_transaction = ctk.CTkScrollableFrame(records_window,
+                                                              width=600,
+                                                              height=280)
+        scroll_frame_for_transaction.pack()
+
+        for amount, reason, type_of_transaction, date in transactions:
+            label_info = ctk.CTkLabel(scroll_frame_for_transaction, text=f"Amount: {amount}; "
+                                                                         f"Reason: {reason}; "
+                                                                         f"Type: {type_of_transaction}; "
+                                                                         f"Date: {date}")
+            label_info.pack(pady=10)
+
+        cursor.close()
+        conn.close()
 
 
 def main():
     fin_flow_app = FinFlowApp()
     fin_flow_app.mainloop()
+
 
 
 if __name__ == "__main__":
