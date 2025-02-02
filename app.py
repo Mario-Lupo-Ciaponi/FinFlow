@@ -5,13 +5,19 @@ from string import capwords
 
 
 def get_connection():
-    return  psycopg2.connect(
-    dbname="fin_flow_db",
-    user="postgres",
-    password="Ps1029384756,.",
-    host="localhost",
-    port="5432"
-    )
+    """
+        This function returns a connection to the database of the app.
+    """
+    try:
+        return  psycopg2.connect(
+        dbname="fin_flow_db",
+        user="postgres",
+        password="Ps1029384756,.",
+        host="localhost",
+        port="5432"
+        )
+    except psycopg2.Error:
+        return None
 
 # Set themes
 ctk.set_appearance_mode("dark")
@@ -19,6 +25,7 @@ ctk.set_default_color_theme("blue")
 
 class FinFlowApp(ctk.CTk):
     TYPES = ["income", "expense"]
+    TABLE_NAME = "transactions"
 
     def __init__(self):
         super().__init__()
@@ -63,38 +70,47 @@ class FinFlowApp(ctk.CTk):
         self.button_to_add.pack(pady=20)
 
     def add_record(self):
-        amount = float(self.entry_for_amount.get())
-        reason = str(self.entry_for_reason.get())
-        type_of_action = self.combo_box_for_options.get()
-
+        allowed_tables = {"transactions"}
+        conn = None
         cursor = None
-        connection_to_db = None
 
         try:
-            connection_to_db = get_connection()
-            if connection_to_db is None:
-                print("Failed to connect to the database.")
+            amount_of_money = float(self.entry_for_amount.get())
+            reason_for_transaction = self.entry_for_reason.get()
+            type_of_transaction = self.combo_box_for_options.get()
+
+            if reason_for_transaction == "":
+                messagebox.showerror("Error", "'Reason' field is empty!")
                 return
 
-            cursor = connection_to_db.cursor()
 
-            query = "INSERT INTO transactions(amount, reason, type) VALUES (%s, %s, %s)"
-            cursor.execute(query, (amount, reason, type_of_action))
+            conn = get_connection()
+            cursor = conn.cursor()
 
-            connection_to_db.commit()
+            insert_into_transactions_query = f"INSERT INTO {self.TABLE_NAME} (amount, reason, type) VALUES(%s, %s, %s);"
 
-            messagebox.showinfo("Success!", f"{capwords(type_of_action)} added successfully!")
-        except psycopg2.Error as e:
-            messagebox.showerror("Error", f"Error occured while adding {type_of_action}")
-            if connection_to_db:
-                connection_to_db.rollback()
+            cursor.execute(insert_into_transactions_query, (amount_of_money,
+                                                            reason_for_transaction,
+                                                            type_of_transaction))
 
+            conn.commit() # If everything is successful, the changes will be commited to the table.
+        except ValueError:
+            messagebox.showerror("Error", "'Amount' must be of float type!")
+        except psycopg2.Error:
+            messagebox.showerror("Error", f"There was a problem with the transaction.")
+
+            if conn:
+                conn.rollback() # To rollback and the transaction won't be made.
+        else:
+            # Message to let the user know that the record is registered.
+            messagebox.showinfo("Success",
+                                f"{capwords(type_of_transaction)} added successfully!")
         finally:
+            if conn:
+                conn.close()
             if cursor:
                 cursor.close()
 
-            if connection_to_db:
-                connection_to_db.close()
 
 
 def main():
