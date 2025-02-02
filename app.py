@@ -130,6 +130,43 @@ class FinFlowApp(ctk.CTk):
         return result is not None  # Return True if a row is found, otherwise False
 
     def show_records(self):
+        def refresh_transactions():
+            """Function to refresh transaction list based on filter selection."""
+            type_wanted = selected_value.get().lower()
+
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            # Clear previous transaction labels
+            for widget in scroll_frame_for_transaction.winfo_children():
+                widget.destroy()
+
+            select_query = f"SELECT * FROM {self.TABLE_NAME}"
+
+            if type_wanted in ["income", "expense"]:
+                select_query += " WHERE type = %s"
+                cursor.execute(select_query, (type_wanted,))
+            else:
+                cursor.execute(select_query)  # If "All" is selected, show everything
+
+            transactions = cursor.fetchall()
+
+            if transactions:
+                for id, amount, reason, type_of_transaction, date in transactions:
+                    label_info = ctk.CTkLabel(scroll_frame_for_transaction, text=f"ID: {id}; "
+                                                                                 f"Amount: {amount}; "
+                                                                                 f"Reason: {reason}; "
+                                                                                 f"Type: {type_of_transaction}; "
+                                                                                 f"Date: {date}")
+                    label_info.pack(pady=10)
+            else:
+                label_info = ctk.CTkLabel(scroll_frame_for_transaction, text="No transactions found.",
+                                          font=("Helvetica", 20))
+                label_info.pack(pady=10)
+
+            cursor.close()
+            conn.close()
+
         def delete_transaction():
             conn_to_db = None
             cursor_to_db = None
@@ -149,7 +186,6 @@ class FinFlowApp(ctk.CTk):
                     delete_query = f"DELETE FROM {self.TABLE_NAME} WHERE id = %s;"
 
                     cursor_to_db.execute(delete_query, (id,))
-
                     conn_to_db.commit()
             except psycopg2.Error:
                 messagebox.showerror("Error", "There was an error with the transactions.")
@@ -158,63 +194,50 @@ class FinFlowApp(ctk.CTk):
                 messagebox.showerror("Error", "Transaction does not exist!")
             else:
                 messagebox.showinfo("Success", "Transaction deleted successfully!")
+                refresh_transactions()
             finally:
                 if conn_to_db:
                     conn_to_db.close()
                 if cursor_to_db:
                     cursor_to_db.close()
 
-
+        # Create a new window for transactions
         records_window = ctk.CTkToplevel(self)
         records_window.title("Transactions")
-        records_window.geometry("730x600")
+        records_window.geometry("730x750")
         records_window.resizable(False, False)
 
-        label_transactions = ctk.CTkLabel(records_window, text="Transactions:", font=("Roboto", 25))
+        label_transactions = ctk.CTkLabel(records_window, text="Transactions:", font=("Roboto", 35))
         label_transactions.pack(pady=20)
 
-        conn = get_connection()
-        cursor = conn.cursor()
+        filter_options = ["All", "Income", "Expense"]
+        selected_value = ctk.StringVar(value="All")
 
-        select_query = f"SELECT * FROM {self.TABLE_NAME};"
+        label_filter = ctk.CTkLabel(records_window, text="Filter by Type:")
+        label_filter.pack()
 
-        cursor.execute(select_query)
+        combo_box_for_filter = ctk.CTkComboBox(records_window, values=filter_options, variable=selected_value)
+        combo_box_for_filter.pack(pady=20)
 
-        transactions = cursor.fetchall()
+        # Attach event to combo box to refresh transactions on change
+        selected_value.trace_add("write", lambda *args: refresh_transactions())
 
-        scroll_frame_for_transaction = ctk.CTkScrollableFrame(records_window,
-                                                              width=630,
-                                                              height=280)
+        scroll_frame_for_transaction = ctk.CTkScrollableFrame(records_window, width=630, height=280)
         scroll_frame_for_transaction.pack(pady=15)
 
-        for id, amount, reason, type_of_transaction, date in transactions:
-            label_info = ctk.CTkLabel(scroll_frame_for_transaction, text=f"ID: {id}; "
-                                                                         f"Amount: {amount}; "
-                                                                         f"Reason: {reason}; "
-                                                                         f"Type: {type_of_transaction}; "
-                                                                         f"Date: {date}")
-            label_info.pack(pady=10)
-
-
-        label_delete_by_id = ctk.CTkLabel(records_window,
-                                    text="Delete transaction by entering id:",
-                                    text_color="#d90902")
+        label_delete_by_id = ctk.CTkLabel(records_window, text="Delete transaction by entering id:",
+                                          text_color="#d90902")
         label_delete_by_id.pack(pady=10)
 
         entry_for_delete = ctk.CTkEntry(records_window, width=40)
         entry_for_delete.pack()
 
-        button_to_delete = ctk.CTkButton(records_window,
-                                         text="DELETE",
-                                         fg_color="Red",
-                                         corner_radius=20,
-                                         width=20,
-                                         hover_color="#820b07",
-                                         command=delete_transaction)
+        button_to_delete = ctk.CTkButton(records_window, text="DELETE", fg_color="Red", corner_radius=20, width=20,
+                                         hover_color="#820b07", command=delete_transaction)
         button_to_delete.pack(pady=20)
 
-        cursor.close()
-        conn.close()
+        # Initial load of transactions
+        refresh_transactions()
 
 
 def main():
