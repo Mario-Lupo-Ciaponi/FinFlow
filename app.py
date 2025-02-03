@@ -130,6 +130,28 @@ class FinFlowApp(ctk.CTk):
         return result is not None  # Return True if a row is found, otherwise False
 
     def show_records(self):
+        def sum_transactions():
+            type_wanted = selected_value.get().lower()
+
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            select_query = f"SELECT SUM(amount) FROM {self.TABLE_NAME}"
+
+            if type_wanted in ["income", "expense"]:
+                select_query += " WHERE type = %s"
+                cursor.execute(select_query, (type_wanted,))
+            else:
+                cursor.execute(select_query)
+
+            sum_of_transactions = cursor.fetchone()[0]
+
+            if sum_of_transactions is None:
+                messagebox.showerror("Error", f"There are no {type_wanted}s!")
+            else:
+                messagebox.showinfo("Sum", f"The sum is {sum_of_transactions}")
+
+
         def refresh_transactions():
             """Function to refresh transaction list based on filter selection."""
             type_wanted = selected_value.get().lower()
@@ -180,13 +202,16 @@ class FinFlowApp(ctk.CTk):
                 if not self.does_query_exist(cursor_to_db, id):
                     raise ValueError
 
-                answer_for_measure = messagebox.askyesno("Are you sure?", "Are you sure you want to delete")
+                answer_for_measure = messagebox.askyesno("Are you sure?", "Are you sure you want to delete?")
 
                 if answer_for_measure:
                     delete_query = f"DELETE FROM {self.TABLE_NAME} WHERE id = %s;"
 
                     cursor_to_db.execute(delete_query, (id,))
                     conn_to_db.commit()
+                else:
+                    messagebox.showinfo("Denied", f"Transactions was not deleted.")
+                    return
             except psycopg2.Error:
                 messagebox.showerror("Error", "There was an error with the transactions.")
                 conn_to_db.rollback()
@@ -235,6 +260,10 @@ class FinFlowApp(ctk.CTk):
         button_to_delete = ctk.CTkButton(records_window, text="DELETE", fg_color="Red", corner_radius=20, width=20,
                                          hover_color="#820b07", command=delete_transaction)
         button_to_delete.pack(pady=20)
+
+        get_sum_button = ctk.CTkButton(records_window, text="Get sum", fg_color="Blue", corner_radius=20, width=30,
+                                         hover_color="#0e096e", command=sum_transactions)
+        get_sum_button.pack(pady=20)
 
         # Initial load of transactions
         refresh_transactions()
