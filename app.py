@@ -52,12 +52,12 @@ class FinFlowApp(ctk.CTk):
         self.entry_for_reason = ctk.CTkEntry(self, width=150)
         self.entry_for_reason.pack(pady=10)
 
-        self.combo_box_for_options = ctk.CTkComboBox(self,
+        self.combo_box_for_options = ctk.CTkOptionMenu(self,
                                                      values=self.TYPES,
                                                      width=100,
-                                                     border_width=2,
-                                                     button_hover_color="#81878c",
-                                                     justify="center")
+                                                     button_hover_color="#81878c")
+
+
         self.combo_box_for_options.pack(pady=20)
 
         self.button_to_add = ctk.CTkButton(self,
@@ -137,12 +137,27 @@ class FinFlowApp(ctk.CTk):
             cursor = conn.cursor()
 
             select_query = f"SELECT SUM(amount) FROM {self.TABLE_NAME}"
+            date_filter = ""
+            filter_date = False
+
+            if date_entry.get() != "":
+                date_filter = date_entry.get()
+                filter_date = True
 
             if type_wanted in ["income", "expense"]:
                 select_query += " WHERE type = %s"
-                cursor.execute(select_query, (type_wanted,))
+
+                if filter_date:
+                    select_query += " AND date::DATE = %s"
+                    cursor.execute(select_query, (type_wanted, date_filter))
+                else:
+                    cursor.execute(select_query, (type_wanted,))
             else:
-                cursor.execute(select_query)
+                if filter_date:
+                    select_query += " WHERE date::DATE = %s"
+                    cursor.execute(select_query, (date_filter,))
+                else:
+                    cursor.execute(select_query)
 
             sum_of_transactions = cursor.fetchone()[0]
 
@@ -163,7 +178,7 @@ class FinFlowApp(ctk.CTk):
             for widget in scroll_frame_for_transaction.winfo_children():
                 widget.destroy()
 
-            select_query = f"SELECT * FROM {self.TABLE_NAME}"
+            select_query = f"SELECT id, amount, reason, type, TO_CHAR(date, 'YYYY.MM.DD - HH24:MI:SS') FROM {self.TABLE_NAME}"
 
             if type_wanted in ["income", "expense"]:
                 select_query += " WHERE type = %s"
@@ -264,6 +279,9 @@ class FinFlowApp(ctk.CTk):
         get_sum_button = ctk.CTkButton(records_window, text="Get sum", fg_color="Blue", corner_radius=20, width=30,
                                          hover_color="#0e096e", command=sum_transactions)
         get_sum_button.pack(pady=20)
+
+        date_entry = ctk.CTkEntry(records_window, placeholder_text="YYYY-MM-DD")
+        date_entry.pack(pady=10)
 
         # Initial load of transactions
         refresh_transactions()
