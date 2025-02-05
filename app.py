@@ -19,9 +19,6 @@ def get_connection():
     except psycopg2.Error:
         return None
 
-# Set themes
-ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
 
 class FinFlowApp(ctk.CTk):
     TYPES = ["income", "expense"]
@@ -30,13 +27,20 @@ class FinFlowApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
+        # Set themes
+        self.theme = "dark"
+        ctk.set_appearance_mode(self.theme)
+        ctk.set_default_color_theme("blue")
+
+        self.bind("<Escape>", self.close_window)
+
         self.resizable(False, False)
 
         self.title("Fin Flow")
-        self.geometry("400x425")
+        self.geometry("400x530")
 
-        self.label_to_add = ctk.CTkLabel(self, text="Type the income/expense:", font=("Roboto", 20))
-        self.label_to_add.pack(pady=20)
+        self.label_to_add = ctk.CTkLabel(self, text="Type the income/expense:", font=("Helvetica", 20, "bold"))
+        self.label_to_add.pack(pady=25)
 
         # Amount:
         self.label_for_instruction_amount = ctk.CTkLabel(self, text="Type amount:") # Label to let the user know what to type
@@ -44,6 +48,8 @@ class FinFlowApp(ctk.CTk):
 
         self.entry_for_amount= ctk.CTkEntry(self)
         self.entry_for_amount.pack(pady=10)
+        self.entry_for_amount.bind("<Return>", self.on_enter)
+        self.entry_for_amount.bind("<Down>", self.focus_on_next_widget)
 
         # Reason
         self.label_for_reason = ctk.CTkLabel(self, text="Type reason:")  # Label to let the user know what to type
@@ -51,25 +57,29 @@ class FinFlowApp(ctk.CTk):
 
         self.entry_for_reason = ctk.CTkEntry(self, width=150)
         self.entry_for_reason.pack(pady=10)
+        self.entry_for_reason.bind("<Return>", self.on_enter)
+        self.entry_for_reason.bind("<Up>", self.focus_on_previous_widget)
 
-        self.combo_box_for_options = ctk.CTkOptionMenu(self,
+        self.option_menu_for_options = ctk.CTkOptionMenu(self,
                                                      values=self.TYPES,
                                                      width=100,
                                                      button_hover_color="#81878c")
 
 
-        self.combo_box_for_options.pack(pady=20)
+        self.option_menu_for_options.pack(pady=20)
 
         self.button_to_add = ctk.CTkButton(self,
-                                           text="Add",
+                                           text="+Add",
                                            command=self.add_record,
                                            font=("Helvetica", 15),
                                            corner_radius=40,
+                                           fg_color="#1E88E5",
+                                           hover_color="#007BFF",
                                            border_width=2,
                                            border_color="#1b72b5",
                                            height=30,
                                            width=80)
-        self.button_to_add.pack(pady=20)
+        self.button_to_add.pack(pady=30)
 
         self.button_for_records = ctk.CTkButton(self,
                                                 text="Show transactions",
@@ -79,7 +89,37 @@ class FinFlowApp(ctk.CTk):
                                                 corner_radius=20,
                                                 fg_color="#0e5c23",
                                                 hover_color="#0a3315")
-        self.button_for_records.pack(pady=10)
+        self.button_for_records.pack(pady=20)
+
+        self.change_theme_button = ctk.CTkButton(self,
+                                                 text="☀️",
+                                                 command=self.change_theme,
+                                                 font=("Helvetica", 10),
+                                                 width=20,
+                                                 corner_radius=60)
+        self.change_theme_button.pack(pady=20)
+
+    def on_enter(self, event=None):
+        self.add_record()
+
+    @staticmethod
+    def focus_on_next_widget(event):
+        event.widget.tk_focusNext().focus()
+        return "break"
+
+    @staticmethod
+    def focus_on_previous_widget(event):
+        event.widget.tk_focusPrev().focus()
+        return "break"
+
+    def close_window(self, event=None):
+        self.destroy()
+
+    def change_theme(self):
+        self.theme = "light" if self.theme == "dark" else "dark"
+        ctk.set_appearance_mode(self.theme)
+        self.change_theme_button.configure(text=f"{"🌙" if self.theme == "light" else "☀️"}")
+
 
     def add_record(self):
         conn = None
@@ -88,7 +128,7 @@ class FinFlowApp(ctk.CTk):
         try:
             amount_of_money = float(self.entry_for_amount.get())
             reason_for_transaction = self.entry_for_reason.get()
-            type_of_transaction = self.combo_box_for_options.get()
+            type_of_transaction = self.option_menu_for_options.get()
 
             if reason_for_transaction == "":
                 messagebox.showerror("Error", "'Reason' field is empty!")
@@ -241,14 +281,18 @@ class FinFlowApp(ctk.CTk):
                 if cursor_to_db:
                     cursor_to_db.close()
 
+        def close_record_window(event=None):
+            records_window.destroy()
+
         # Create a new window for transactions
         records_window = ctk.CTkToplevel(self)
         records_window.title("Transactions")
-        records_window.geometry("730x750")
+        records_window.geometry("730x900")
         records_window.resizable(False, False)
+        records_window.bind("<Escape>", close_record_window)
 
-        label_transactions = ctk.CTkLabel(records_window, text="Transactions:", font=("Roboto", 35))
-        label_transactions.pack(pady=20)
+        label_transactions = ctk.CTkLabel(records_window, text="Transactions:", font=("Helvetica", 35, "bold"))
+        label_transactions.pack(pady=30)
 
         filter_options = ["All", "Income", "Expense"]
         selected_value = ctk.StringVar(value="All")
@@ -258,6 +302,12 @@ class FinFlowApp(ctk.CTk):
 
         combo_box_for_filter = ctk.CTkComboBox(records_window, values=filter_options, variable=selected_value)
         combo_box_for_filter.pack(pady=20)
+
+        label_date_filter = ctk.CTkLabel(records_window, text="Filter by Date:")
+        label_date_filter.pack()
+
+        date_entry = ctk.CTkEntry(records_window, placeholder_text="YYYY-MM-DD")
+        date_entry.pack(pady=20)
 
         # Attach event to combo box to refresh transactions on change
         selected_value.trace_add("write", lambda *args: refresh_transactions())
@@ -272,16 +322,13 @@ class FinFlowApp(ctk.CTk):
         entry_for_delete = ctk.CTkEntry(records_window, width=40)
         entry_for_delete.pack()
 
-        button_to_delete = ctk.CTkButton(records_window, text="DELETE", fg_color="Red", corner_radius=20, width=20,
-                                         hover_color="#820b07", command=delete_transaction)
+        button_to_delete = ctk.CTkButton(records_window, text="🗑️ DELETE", fg_color="#D32F2F", corner_radius=20, width=20,
+                                         hover_color="#B71C1C", command=delete_transaction)
         button_to_delete.pack(pady=20)
 
         get_sum_button = ctk.CTkButton(records_window, text="Get sum", fg_color="Blue", corner_radius=20, width=30,
                                          hover_color="#0e096e", command=sum_transactions)
-        get_sum_button.pack(pady=20)
-
-        date_entry = ctk.CTkEntry(records_window, placeholder_text="YYYY-MM-DD")
-        date_entry.pack(pady=10)
+        get_sum_button.pack(pady=27)
 
         # Initial load of transactions
         refresh_transactions()
