@@ -19,25 +19,36 @@ def get_connection():
     except psycopg2.Error:
         return None
 
+def get_cursor_connection():
+    """
+        This function returns a connection(return from the 'get_connection' function and the cursor.
+    """
+    connection = get_connection() # Returned from the 'get_connection' function
+    cursor = connection.cursor() # This let's us execute queries
+
+    return connection, cursor
 
 class FinFlowApp(ctk.CTk):
     TYPES = ["income", "expense"]
     TABLE_NAME = "transactions"
 
     def __init__(self):
-        super().__init__()
+        """
+            Instantiates the GUI
+        """
+        super().__init__() # Inherits from the CTk object
 
         # Set themes
-        self.theme = "dark"
+        self.theme = "dark" # The theme by-default will be 'dark'
         ctk.set_appearance_mode(self.theme)
-        ctk.set_default_color_theme("blue")
+        ctk.set_default_color_theme("blue") # The default color will be 'blue'
 
-        self.bind("<Escape>", self.close_window)
+        self.bind("<Escape>", self.close_window) # When the escape key(esc) is pressed, it will close the window
 
-        self.resizable(False, False)
+        self.resizable(False, False) # The user cannot change the size of the window
 
-        self.title("Fin Flow")
-        self.geometry("400x530")
+        self.title("Fin Flow") # This is the tittle of the window
+        self.geometry("400x530") # This is the size of the window(which cannot be changed)
 
         self.label_to_add = ctk.CTkLabel(self, text="Type the income/expense:", font=("Helvetica", 20, "bold"))
         self.label_to_add.pack(pady=25)
@@ -135,8 +146,7 @@ class FinFlowApp(ctk.CTk):
                 return
 
 
-            conn = get_connection()
-            cursor = conn.cursor()
+            conn, cursor = get_cursor_connection()
 
             insert_into_transactions_query = f"INSERT INTO {self.TABLE_NAME} (amount, reason, type) VALUES(%s, %s, %s);"
 
@@ -173,8 +183,7 @@ class FinFlowApp(ctk.CTk):
         def sum_transactions():
             type_wanted = selected_value.get().lower()
 
-            conn = get_connection()
-            cursor = conn.cursor()
+            conn, cursor = get_cursor_connection()
 
             select_query = f"SELECT SUM(amount) FROM {self.TABLE_NAME}"
             date_filter = ""
@@ -211,8 +220,7 @@ class FinFlowApp(ctk.CTk):
             """Function to refresh transaction list based on filter selection."""
             type_wanted = selected_value.get().lower()
 
-            conn = get_connection()
-            cursor = conn.cursor()
+            conn, cursor = get_cursor_connection()
 
             # Clear previous transaction labels
             for widget in scroll_frame_for_transaction.winfo_children():
@@ -249,8 +257,7 @@ class FinFlowApp(ctk.CTk):
             cursor_to_db = None
 
             try:
-                conn_to_db = get_connection()
-                cursor_to_db = conn_to_db.cursor()
+                conn_to_db, cursor_to_db = get_cursor_connection()
 
                 id = entry_for_delete.get()
 
@@ -268,7 +275,7 @@ class FinFlowApp(ctk.CTk):
                     messagebox.showinfo("Denied", f"Transactions was not deleted.")
                     return
             except psycopg2.Error:
-                messagebox.showerror("Error", "There was an error with the transactions.")
+                messagebox.showerror("Error", "Error with database(maybe invalid type of index or internal error)")
                 conn_to_db.rollback()
             except ValueError:
                 messagebox.showerror("Error", "Transaction does not exist!")
