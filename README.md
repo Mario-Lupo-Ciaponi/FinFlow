@@ -44,8 +44,8 @@ pip intall psycopg2
 
 ```postgresql
 CREATE TABLE transactions (
-    id SERIAL PRIMARY KEY,
-    amount FLOAT NOT NULL,
+    id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    amount NUMERIC(100, 2) NOT NULL,
     reason TEXT NOT NULL,
     type VARCHAR(10) CHECK (type IN ('income', 'expense')) NOT NULL,
     date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
